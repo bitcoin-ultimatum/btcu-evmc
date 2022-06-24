@@ -1,6 +1,7 @@
-// EVMC: Ethereum Client-VM Connector API.
-// Copyright 2016 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
+/* EVMC: Ethereum Client-VM Connector API.
+ * Copyright 2016-2019 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0.
+ */
 
 /// @file
 /// Example implementation of an EVMC Host.
@@ -29,8 +30,11 @@ struct account
     {
         // Extremely dumb "hash" function.
         evmc::bytes32 ret{};
-        for (const auto v : code)
+        for (std::vector<uint8_t>::size_type i = 0; i != code.size(); i++)
+        {
+            auto v = code[i];
             ret.bytes[v % sizeof(ret.bytes)] ^= v;
+        }
         return ret;
     }
 };
@@ -138,14 +142,13 @@ public:
 
     evmc_tx_context get_tx_context() const noexcept final { return tx_context; }
 
-    // NOLINTNEXTLINE(bugprone-exception-escape)
     evmc::bytes32 get_block_hash(int64_t number) const noexcept final
     {
         const int64_t current_block_number = get_tx_context().block_number;
 
         return (number < current_block_number && number >= current_block_number - 256) ?
                    0xb10c8a5fb10c8a5fb10c8a5fb10c8a5fb10c8a5fb10c8a5fb10c8a5fb10c8a5f_bytes32 :
-                   0x0000000000000000000000000000000000000000000000000000000000000000_bytes32;
+                   0_bytes32;
     }
 
     void emit_log(const evmc::address& addr,

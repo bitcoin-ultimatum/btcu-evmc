@@ -1,5 +1,5 @@
 // EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
+// Copyright 2018-2020 The EVMC Authors.
 // Licensed under the Apache License, Version 2.0.
 
 // The vector is not used here, but including it was causing compilation issues
@@ -21,62 +21,52 @@
 class NullHost : public evmc::Host
 {
 public:
-    bool account_exists(const evmc::address& /*addr*/) const noexcept final { return false; }
+    bool account_exists(const evmc::address&) const noexcept final { return false; }
 
-    evmc::bytes32 get_storage(const evmc::address& /*addr*/,
-                              const evmc::bytes32& /*key*/) const noexcept final
+    evmc::bytes32 get_storage(const evmc::address&, const evmc::bytes32&) const noexcept final
     {
         return {};
     }
 
-    evmc_storage_status set_storage(const evmc::address& /*addr*/,
-                                    const evmc::bytes32& /*key*/,
-                                    const evmc::bytes32& /*value*/) noexcept final
+    evmc_storage_status set_storage(const evmc::address&,
+                                    const evmc::bytes32&,
+                                    const evmc::bytes32&) noexcept final
     {
         return {};
     }
 
-    evmc::uint256be get_balance(const evmc::address& /*addr*/) const noexcept final { return {}; }
+    evmc::uint256be get_balance(const evmc::address&) const noexcept final { return {}; }
 
-    size_t get_code_size(const evmc::address& /*addr*/) const noexcept final { return 0; }
+    size_t get_code_size(const evmc::address&) const noexcept final { return 0; }
 
-    evmc::bytes32 get_code_hash(const evmc::address& /*addr*/) const noexcept final { return {}; }
+    evmc::bytes32 get_code_hash(const evmc::address&) const noexcept final { return {}; }
 
-    size_t copy_code(const evmc::address& /*addr*/,
-                     size_t /*code_offset*/,
-                     uint8_t* /*buffer_data*/,
-                     size_t /*buffer_size*/) const noexcept final
+    size_t copy_code(const evmc::address&, size_t, uint8_t*, size_t) const noexcept final
     {
         return 0;
     }
 
-    void selfdestruct(const evmc::address& /*addr*/,
-                      const evmc::address& /*beneficiary*/) noexcept final
-    {}
+    void selfdestruct(const evmc::address&, const evmc::address&) noexcept final {}
 
-    evmc::result call(const evmc_message& /*msg*/) noexcept final
-    {
-        return evmc::result{evmc_result{}};
-    }
+    evmc::result call(const evmc_message&) noexcept final { return evmc::result{evmc_result{}}; }
 
     evmc_tx_context get_tx_context() const noexcept final { return {}; }
 
-    evmc::bytes32 get_block_hash(int64_t /*block_number*/) const noexcept final { return {}; }
+    evmc::bytes32 get_block_hash(int64_t) const noexcept final { return {}; }
 
-    void emit_log(const evmc::address& /*addr*/,
-                  const uint8_t* /*data*/,
-                  size_t /*data_size*/,
-                  const evmc::bytes32 /*topics*/[],
-                  size_t /*num_topics*/) noexcept final
+    void emit_log(const evmc::address&,
+                  const uint8_t*,
+                  size_t,
+                  const evmc::bytes32[],
+                  size_t) noexcept final
     {}
 
-    evmc_access_status access_account(const evmc::address& /*addr*/) noexcept final
+    evmc_access_status access_account(const evmc::address&) noexcept final
     {
         return EVMC_ACCESS_COLD;
     }
 
-    evmc_access_status access_storage(const evmc::address& /*addr*/,
-                                      const evmc::bytes32& /*key*/) noexcept final
+    evmc_access_status access_storage(const evmc::address&, const evmc::bytes32&) noexcept final
     {
         return EVMC_ACCESS_COLD;
     }
@@ -348,9 +338,8 @@ TEST(cpp, literals)
     constexpr auto address1 = 0xa0a1a2a3a4a5a6a7a8a9d0d1d2d3d4d5d6d7d8d9_address;
     constexpr auto hash1 =
         0x01020304050607080910a1a2a3a4a5a6a7a8a9b0c1c2c3c4c5c6c7c8c9d0d1d2_bytes32;
-    constexpr auto zero_address = 0x0000000000000000000000000000000000000000_address;
-    constexpr auto zero_hash =
-        0x0000000000000000000000000000000000000000000000000000000000000000_bytes32;
+    constexpr auto zero_address = 0_address;
+    constexpr auto zero_hash = 0_bytes32;
 
     static_assert(address1.bytes[0] == 0xa0);
     static_assert(address1.bytes[9] == 0xa9);
@@ -362,13 +351,8 @@ TEST(cpp, literals)
     static_assert(zero_address == evmc::address{});
     static_assert(zero_hash == evmc::bytes32{});
 
-    static_assert(0x00_address == 0x0000000000000000000000000000000000000000_address);
-    static_assert(0x01_address == 0x0000000000000000000000000000000000000001_address);
-    static_assert(0xf101_address == 0x000000000000000000000000000000000000f101_address);
-
-    EXPECT_EQ(0x0000000000000000000000000000000000000000_address, evmc::address{});
-    EXPECT_EQ(0x0000000000000000000000000000000000000000000000000000000000000000_bytes32,
-              evmc::bytes32{});
+    EXPECT_EQ(0_address, evmc::address{});
+    EXPECT_EQ(0_bytes32, evmc::bytes32{});
 
     auto a1 = 0xa0a1a2a3a4a5a6a7a8a9d0d1d2d3d4d5d6d7d8d9_address;
     evmc::address e1{{{0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9,
@@ -419,29 +403,6 @@ TEST(cpp, address_from_uint)
     EXPECT_EQ(address{0x500}, 0x0000000000000000000000000000000000000500_address);
     EXPECT_EQ(address{0x8000000000000000}, 0x0000000000000000000000008000000000000000_address);
     EXPECT_EQ(address{0xc1c2c3c4c5c6c7c8}, 0x000000000000000000000000c1c2c3c4c5c6c7c8_address);
-}
-
-TEST(cpp, address_to_bytes_view)
-{
-    using evmc::operator""_address;
-
-    constexpr auto a = 0xa0a1a2a3a4a5a6a7a8a9b0b1b2b3b4b5b6b7b8b9_address;
-    static_assert(static_cast<evmc::bytes_view>(a).size() == 20);
-    const evmc::bytes_view v = a;
-    EXPECT_EQ(v, (evmc::bytes{0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9,
-                              0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9}));
-}
-
-TEST(cpp, bytes32_to_bytes_view)
-{
-    using evmc::operator""_bytes32;
-
-    constexpr auto b = 0xa0a1a2a3a4a5a6a7a8a9b0b1b2b3b4b5b6b7b8b9c0c1c2c3c4c5c6c7c8c9d0d1_bytes32;
-    static_assert(static_cast<evmc::bytes_view>(b).size() == 32);
-    const evmc::bytes_view v = b;
-    EXPECT_EQ(v, (evmc::bytes{0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xb0,
-                              0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xc0, 0xc1,
-                              0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xd0, 0xd1}));
 }
 
 TEST(cpp, result)
@@ -571,12 +532,12 @@ TEST(cpp, vm_move)
         EXPECT_TRUE(vm1);
         auto vm2 = std::move(vm1);
         EXPECT_TRUE(vm2);
-        EXPECT_FALSE(vm1);                          // NOLINT
-        EXPECT_EQ(vm1.get_raw_pointer(), nullptr);  // NOLINT
+        EXPECT_FALSE(vm1);  // NOLINT
+        EXPECT_EQ(vm1.get_raw_pointer(), nullptr);
         auto vm3 = std::move(vm2);
         EXPECT_TRUE(vm3);
-        EXPECT_FALSE(vm2);                          // NOLINT
-        EXPECT_EQ(vm2.get_raw_pointer(), nullptr);  // NOLINT
+        EXPECT_FALSE(vm2);  // NOLINT
+        EXPECT_EQ(vm2.get_raw_pointer(), nullptr);
         EXPECT_FALSE(vm1);
         EXPECT_EQ(vm1.get_raw_pointer(), nullptr);
     }
@@ -602,7 +563,7 @@ TEST(cpp, vm_execute_precompiles)
     constexpr std::array<uint8_t, 3> input{{1, 2, 3}};
 
     evmc_message msg{};
-    msg.code_address.bytes[19] = 4;  // Call Identify precompile at address 0x4.
+    msg.destination.bytes[19] = 4;  // Call Identify precompile at address 0x4.
     msg.input_data = input.data();
     msg.input_size = input.size();
     msg.gas = 18;
@@ -824,9 +785,8 @@ TEST(cpp, status_code_to_string)
         std::string_view str;
     };
 
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define TEST_CASE(NAME) \
-    TestCase { NAME, #NAME }
+#define TEST_CASE(STATUS_CODE) \
+    TestCase { STATUS_CODE, #STATUS_CODE }
     constexpr TestCase test_cases[]{
         TEST_CASE(EVMC_SUCCESS),
         TEST_CASE(EVMC_FAILURE),
@@ -875,9 +835,8 @@ TEST(cpp, revision_to_string)
         std::string_view str;
     };
 
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define TEST_CASE(NAME) \
-    TestCase { NAME, #NAME }
+#define TEST_CASE(STATUS_CODE) \
+    TestCase { STATUS_CODE, #STATUS_CODE }
     constexpr TestCase test_cases[]{
         TEST_CASE(EVMC_FRONTIER),
         TEST_CASE(EVMC_HOMESTEAD),
@@ -889,9 +848,7 @@ TEST(cpp, revision_to_string)
         TEST_CASE(EVMC_ISTANBUL),
         TEST_CASE(EVMC_BERLIN),
         TEST_CASE(EVMC_LONDON),
-        TEST_CASE(EVMC_PARIS),
         TEST_CASE(EVMC_SHANGHAI),
-        TEST_CASE(EVMC_CANCUN),
     };
 #undef TEST_CASE
 
@@ -926,7 +883,7 @@ TEST(cpp, revision_to_string)
 
 
 #ifdef __GNUC__
-extern "C" [[gnu::weak]] void __ubsan_handle_builtin_unreachable(void*);  // NOLINT
+extern "C" [[gnu::weak]] void __ubsan_handle_builtin_unreachable(void*);
 #endif
 
 static bool has_ubsan() noexcept

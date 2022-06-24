@@ -1,5 +1,5 @@
 # EVMC: Ethereum Client-VM Connector API.
-# Copyright 2016 The EVMC Authors.
+# Copyright 2016-2020 The EVMC Authors.
 # Licensed under the Apache License, Version 2.0.
 
 cmake_minimum_required(VERSION 3.10)
@@ -13,7 +13,7 @@ if(TARGET evmc)
     return()
 endif()
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cable)
+include(cmake/cable/bootstrap.cmake)
 include(CableBuildType)
 include(CableCompilerSettings)
 include(CablePackage)
@@ -44,9 +44,7 @@ endif()
 cable_set_build_type(DEFAULT Release CONFIGURATION_TYPES Debug Release)
 
 project(evmc)
-set(PROJECT_VERSION 10.0.0-alpha.6)
-
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(PROJECT_VERSION 9.0.0)
 
 include(GNUInstallDirs)  # Must be included after any language is enabled.
 if(NOT DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
@@ -58,10 +56,7 @@ endif()
 cable_configure_compiler(NO_STACK_PROTECTION)
 if(CABLE_COMPILER_GNULIKE)
     # TODO: Resolve issues or remove "result optional storage" and enable -Wcast-align.
-    add_compile_options(
-        -Wmissing-declarations
-        $<$<COMPILE_LANGUAGE:CXX>:-Wold-style-cast>
-    )
+    add_compile_options(-Wmissing-declarations)
     cable_add_cxx_compiler_flag_if_supported(-Wfinal-dtor-non-final-class)
     cable_add_cxx_compiler_flag_if_supported(-Wnewline-eof)
     cable_add_cxx_compiler_flag_if_supported(-Wsuggest-destructor-override)

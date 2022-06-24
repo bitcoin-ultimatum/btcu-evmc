@@ -1,5 +1,5 @@
 // EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
+// Copyright 2018-2020 The EVMC Authors.
 // Licensed under the Apache License, Version 2.0.
 
 package evmc
@@ -28,22 +28,21 @@ extern const struct evmc_host_interface evmc_go_host;
 static struct evmc_result execute_wrapper(struct evmc_vm* vm,
 	uintptr_t context_index, enum evmc_revision rev,
 	enum evmc_call_kind kind, uint32_t flags, int32_t depth, int64_t gas,
-	const evmc_address* recipient, const evmc_address* sender,
+	const evmc_address* destination, const evmc_address* sender,
 	const uint8_t* input_data, size_t input_size, const evmc_uint256be* value,
-	const uint8_t* code, size_t code_size)
+	const uint8_t* code, size_t code_size, const evmc_bytes32* create2_salt)
 {
 	struct evmc_message msg = {
 		kind,
 		flags,
 		depth,
 		gas,
-		*recipient,
+		*destination,
 		*sender,
 		input_data,
 		input_size,
 		*value,
-		{{0}}, // create2_salt: not required for execution
-		{{0}}, // code_address: not required for execution
+		*create2_salt,
 	};
 
 	struct evmc_host_context* context = (struct evmc_host_context*)context_index;
@@ -105,9 +104,7 @@ const (
 	Istanbul             Revision = C.EVMC_ISTANBUL
 	Berlin               Revision = C.EVMC_BERLIN
 	London               Revision = C.EVMC_LONDON
-	Paris                Revision = C.EVMC_PARIS
 	Shanghai             Revision = C.EVMC_SHANGHAI
-	Cancun               Revision = C.EVMC_CANCUN
 	MaxRevision          Revision = C.EVMC_MAX_REVISION
 	LatestStableRevision Revision = C.EVMC_LATEST_STABLE_REVISION
 )
@@ -118,7 +115,7 @@ type VM struct {
 
 func Load(filename string) (vm *VM, err error) {
 	cfilename := C.CString(filename)
-	loaderErr := C.enum_evmc_loader_error_code(C.EVMC_LOADER_UNSPECIFIED_ERROR)
+	var loaderErr C.enum_evmc_loader_error_code
 	handle := C.evmc_load_and_create(cfilename, &loaderErr)
 	C.free(unsafe.Pointer(cfilename))
 
@@ -138,7 +135,7 @@ func Load(filename string) (vm *VM, err error) {
 
 func LoadAndConfigure(config string) (vm *VM, err error) {
 	cconfig := C.CString(config)
-	loaderErr := C.enum_evmc_loader_error_code(C.EVMC_LOADER_UNSPECIFIED_ERROR)
+	var loaderErr C.enum_evmc_loader_error_code
 	handle := C.evmc_load_and_configure(cconfig, &loaderErr)
 	C.free(unsafe.Pointer(cconfig))
 
@@ -196,8 +193,8 @@ func (vm *VM) SetOption(name string, value string) (err error) {
 
 func (vm *VM) Execute(ctx HostContext, rev Revision,
 	kind CallKind, static bool, depth int, gas int64,
-	recipient Address, sender Address, input []byte, value Hash,
-	code []byte) (output []byte, gasLeft int64, err error) {
+	destination Address, sender Address, input []byte, value Hash,
+	code []byte, create2Salt Hash) (output []byte, gasLeft int64, err error) {
 
 	flags := C.uint32_t(0)
 	if static {
@@ -206,13 +203,14 @@ func (vm *VM) Execute(ctx HostContext, rev Revision,
 
 	ctxId := addHostContext(ctx)
 	// FIXME: Clarify passing by pointer vs passing by value.
-	evmcRecipient := evmcAddress(recipient)
+	evmcDestination := evmcAddress(destination)
 	evmcSender := evmcAddress(sender)
 	evmcValue := evmcBytes32(value)
+	evmcCreate2Salt := evmcBytes32(create2Salt)
 	result := C.execute_wrapper(vm.handle, C.uintptr_t(ctxId), uint32(rev),
 		C.enum_evmc_call_kind(kind), flags, C.int32_t(depth), C.int64_t(gas),
-		&evmcRecipient, &evmcSender, bytesPtr(input), C.size_t(len(input)), &evmcValue,
-		bytesPtr(code), C.size_t(len(code)))
+		&evmcDestination, &evmcSender, bytesPtr(input), C.size_t(len(input)), &evmcValue,
+		bytesPtr(code), C.size_t(len(code)), &evmcCreate2Salt)
 	removeHostContext(ctxId)
 
 	output = C.GoBytes(unsafe.Pointer(result.output_data), C.int(result.output_size))

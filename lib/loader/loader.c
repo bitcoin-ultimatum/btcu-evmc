@@ -1,6 +1,7 @@
-// EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
+/* EVMC: Ethereum Client-VM Connector API.
+ * Copyright 2018-2019 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0.
+ */
 
 #include <evmc/loader.h>
 
@@ -26,7 +27,6 @@
 #define DLL_HANDLE void*
 #define DLL_OPEN(filename) dlopen(filename, RTLD_LAZY)
 #define DLL_CLOSE(handle) dlclose(handle)
-// NOLINTNEXTLINE(performance-no-int-to-ptr)
 #define DLL_GET_CREATE_FN(handle, name) (evmc_create_fn)(uintptr_t) dlsym(handle, name)
 #define DLL_GET_ERROR_MSG() dlerror()
 #endif
@@ -60,7 +60,6 @@ static
         dest[0] = 0;
         return 1;
     }
-    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     memcpy(dest, src, len);
     dest[len] = 0;
     return 0;
@@ -83,7 +82,6 @@ static enum evmc_loader_error_code set_error(enum evmc_loader_error_code error_c
 {
     va_list args;
     va_start(args, format);
-    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     if (vsnprintf(last_error_msg_buffer, LAST_ERROR_MSG_BUFFER_SIZE, format, args) <
         LAST_ERROR_MSG_BUFFER_SIZE)
         last_error_msg = last_error_msg_buffer;
@@ -269,15 +267,16 @@ struct evmc_vm* evmc_load_and_configure(const char* config, enum evmc_loader_err
     if (!vm)
         return NULL;
 
+    if (vm->set_option == NULL && strlen(options) != 0)
+    {
+        ec = set_error(EVMC_LOADER_INVALID_OPTION_NAME, "%s (%s) does not support any options",
+                       vm->name, path);
+        goto exit;
+    }
+
+
     while (strlen(options) != 0)
     {
-        if (vm->set_option == NULL)
-        {
-            ec = set_error(EVMC_LOADER_INVALID_OPTION_NAME, "%s (%s) does not support any options",
-                           vm->name, path);
-            goto exit;
-        }
-
         char* option = get_token(&options, ',');
 
         // Slit option into name and value by taking the name token.

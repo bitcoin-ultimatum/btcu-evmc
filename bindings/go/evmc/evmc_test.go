@@ -1,5 +1,5 @@
 // EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
+// Copyright 2018-2020 The EVMC Authors.
 // Licensed under the Apache License, Version 2.0.
 
 //go:generate g++ -shared ../../../examples/example_vm/example_vm.cpp -I../../../include -o example_vm.so
@@ -47,7 +47,7 @@ func TestExecuteEmptyCode(t *testing.T) {
 
 	addr := Address{}
 	h := Hash{}
-	output, gasLeft, err := vm.Execute(nil, Byzantium, Call, false, 1, 999, addr, addr, nil, h, nil)
+	output, gasLeft, err := vm.Execute(nil, Byzantium, Call, false, 1, 999, addr, addr, nil, h, nil, h)
 
 	if bytes.Compare(output, []byte("")) != 0 {
 		t.Errorf("execution unexpected output: %x", output)
@@ -61,7 +61,7 @@ func TestExecuteEmptyCode(t *testing.T) {
 }
 
 func TestRevision(t *testing.T) {
-	if MaxRevision != Cancun {
+	if MaxRevision != Shanghai {
 		t.Errorf("missing constant for revision %d", MaxRevision)
 	}
 	if LatestStableRevision != London {

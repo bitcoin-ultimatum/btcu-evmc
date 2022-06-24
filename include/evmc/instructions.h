@@ -1,6 +1,7 @@
-// EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
+/* EVMC: Ethereum Client-VM Connector API.
+ * Copyright 2018-2019 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0.
+ */
 
 /**
  * EVM Instruction Tables
@@ -75,7 +76,7 @@ enum evmc_opcode
     OP_COINBASE = 0x41,
     OP_TIMESTAMP = 0x42,
     OP_NUMBER = 0x43,
-    OP_PREVRANDAO = 0x44,
+    OP_DIFFICULTY = 0x44,
     OP_GASLIMIT = 0x45,
     OP_CHAINID = 0x46,
     OP_SELFBALANCE = 0x47,
@@ -94,7 +95,6 @@ enum evmc_opcode
     OP_GAS = 0x5a,
     OP_JUMPDEST = 0x5b,
 
-    OP_PUSH0 = 0x5f,
     OP_PUSH1 = 0x60,
     OP_PUSH2 = 0x61,
     OP_PUSH3 = 0x62,

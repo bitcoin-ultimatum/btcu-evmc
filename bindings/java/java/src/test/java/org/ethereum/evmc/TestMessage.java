@@ -13,18 +13,17 @@ public class TestMessage {
   int flags;
   int depth;
   long gas;
-  char[] recipient;
+  char[] destination;
   char[] sender;
   char[] inputData;
   long inputSize;
   char[] value;
   byte[] createSalt;
-  byte[] codeAddress;
 
   public TestMessage(
       int kind,
       char[] sender,
-      char[] recipient,
+      char[] destination,
       char[] value,
       char[] inputData,
       long gas,
@@ -33,13 +32,12 @@ public class TestMessage {
     this.flags = 0;
     this.depth = depth;
     this.gas = gas;
-    this.recipient = recipient;
+    this.destination = destination;
     this.sender = sender;
     this.inputData = inputData;
     this.inputSize = (long) inputData.length;
     this.value = value;
     this.createSalt = new byte[32];
-    this.codeAddress = new byte[20];
   }
 
   public TestMessage(ByteBuffer msg) {
@@ -49,7 +47,7 @@ public class TestMessage {
     msg.getInt(); // padding
     this.gas = msg.getLong();
     ByteBuffer tmpbuf = msg.get(new byte[20]);
-    this.recipient = StandardCharsets.ISO_8859_1.decode(tmpbuf).array();
+    this.destination = StandardCharsets.ISO_8859_1.decode(tmpbuf).array();
     tmpbuf = msg.get(new byte[20]);
     this.sender = StandardCharsets.ISO_8859_1.decode(tmpbuf).array();
     tmpbuf = msg.get(new byte[8]);
@@ -58,24 +56,22 @@ public class TestMessage {
     tmpbuf = msg.get(new byte[32]);
     this.value = StandardCharsets.ISO_8859_1.decode(tmpbuf).array();
     this.createSalt = msg.get(new byte[32]).array();
-    this.codeAddress = msg.get(new byte[20]).array();
   }
 
   public ByteBuffer toByteBuffer() {
 
-    return ByteBuffer.allocateDirect(172)
+    return ByteBuffer.allocateDirect(152)
         .order(ByteOrder.nativeOrder())
         .putInt(kind) // 4
         .putInt(flags) // 4
         .putInt(depth) // 4
         .put(new byte[4]) // 4 (padding)
         .putLong(gas) // 8
-        .put(StandardCharsets.ISO_8859_1.encode(CharBuffer.wrap(recipient))) // 20
+        .put(StandardCharsets.ISO_8859_1.encode(CharBuffer.wrap(destination))) // 20
         .put(StandardCharsets.ISO_8859_1.encode(CharBuffer.wrap(sender))) // 20
         .put(StandardCharsets.ISO_8859_1.encode(CharBuffer.wrap(inputData))) // 8
         .putLong(inputSize) // 8
         .put(StandardCharsets.ISO_8859_1.encode(CharBuffer.wrap(value))) // 32
-        .put(createSalt) // 32
-        .put(codeAddress); // 20
+        .put(createSalt); // 32
   }
 }

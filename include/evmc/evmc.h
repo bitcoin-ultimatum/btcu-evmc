@@ -2,7 +2,7 @@
  * EVMC: Ethereum Client-VM Connector API
  *
  * @copyright
- * Copyright 2016 The EVMC Authors.
+ * Copyright 2016-2019 The EVMC Authors.
  * Licensed under the Apache License, Version 2.0.
  *
  * @defgroup EVMC EVMC
@@ -44,7 +44,7 @@ enum
      *
      * @see @ref versioning
      */
-    EVMC_ABI_VERSION = 10
+    EVMC_ABI_VERSION = 9
 };
 
 
@@ -89,9 +89,8 @@ enum evmc_flags
 };
 
 /**
- * The message describing an EVM call, including a zero-depth calls from a transaction origin.
- *
- * Most of the fields are modelled by the section 8. Message Call of the Ethereum Yellow Paper.
+ * The message describing an EVM call,
+ * including a zero-depth calls from a transaction origin.
  */
 struct evmc_message
 {
@@ -104,48 +103,21 @@ struct evmc_message
      */
     uint32_t flags;
 
-    /**
-     * The present depth of the message call stack.
-     *
-     * Defined as `e` in the Yellow Paper.
-     */
+    /** The call depth. */
     int32_t depth;
 
-    /**
-     * The amount of gas available to the message execution.
-     *
-     * Defined as `g` in the Yellow Paper.
-     */
+    /** The amount of gas for message execution. */
     int64_t gas;
 
-    /**
-     * The recipient of the message.
-     *
-     * This is the address of the account which storage/balance/nonce is going to be modified
-     * by the message execution. In case of ::EVMC_CALL, this is also the account where the
-     * message value evmc_message::value is going to be transferred.
-     * For ::EVMC_CALLCODE or ::EVMC_DELEGATECALL, this may be different from
-     * the evmc_message::code_address.
-     *
-     * Defined as `r` in the Yellow Paper.
-     */
-    evmc_address recipient;
+    /** The destination of the message. */
+    evmc_address destination;
 
-    /**
-     * The sender of the message.
-     *
-     * The address of the sender of a message call defined as `s` in the Yellow Paper.
-     * This must be the message recipient of the message at the previous (lower) depth,
-     * except for the ::EVMC_DELEGATECALL where recipient is the 2 levels above the present depth.
-     * At the depth 0 this must be the transaction origin.
-     */
+    /** The sender of the message. */
     evmc_address sender;
 
     /**
      * The message input data.
      *
-     * The arbitrary length byte array of the input data of the call,
-     * defined as `d` in the Yellow Paper.
      * This MAY be NULL.
      */
     const uint8_t* input_data;
@@ -159,49 +131,30 @@ struct evmc_message
 
     /**
      * The amount of Ether transferred with the message.
-     *
-     * This is transferred value for ::EVMC_CALL or apparent value for ::EVMC_DELEGATECALL.
-     * Defined as `v` or `v~` in the Yellow Paper.
      */
     evmc_uint256be value;
 
     /**
      * The optional value used in new contract address construction.
      *
-     * Needed only for a Host to calculate created address when kind is ::EVMC_CREATE2.
-     * Ignored in evmc_execute_fn().
+     * Ignored unless kind is EVMC_CREATE2.
      */
     evmc_bytes32 create2_salt;
-
-    /**
-     * The address of the code to be executed.
-     *
-     * For ::EVMC_CALLCODE or ::EVMC_DELEGATECALL this may be different from
-     * the evmc_message::recipient.
-     * Not required when invoking evmc_execute_fn(), only when invoking evmc_call_fn().
-     * Ignored if kind is ::EVMC_CREATE or ::EVMC_CREATE2.
-     *
-     * In case of ::EVMC_CAPABILITY_PRECOMPILES implementation, this fields should be inspected
-     * to identify the requested precompile.
-     *
-     * Defined as `c` in the Yellow Paper.
-     */
-    evmc_address code_address;
 };
 
 
 /** The transaction and block data for execution. */
 struct evmc_tx_context
 {
-    evmc_uint256be tx_gas_price;      /**< The transaction gas price. */
-    evmc_address tx_origin;           /**< The transaction origin account. */
-    evmc_address block_coinbase;      /**< The miner of the block. */
-    int64_t block_number;             /**< The block number. */
-    int64_t block_timestamp;          /**< The block timestamp. */
-    int64_t block_gas_limit;          /**< The block gas limit. */
-    evmc_uint256be block_prev_randao; /**< The block previous RANDAO (EIP-4399). */
-    evmc_uint256be chain_id;          /**< The blockchain's ChainID. */
-    evmc_uint256be block_base_fee;    /**< The block base fee per gas (EIP-1559, EIP-3198). */
+    evmc_uint256be tx_gas_price;     /**< The transaction gas price. */
+    evmc_address tx_origin;          /**< The transaction origin account. */
+    evmc_address block_coinbase;     /**< The miner of the block. */
+    int64_t block_number;            /**< The block number. */
+    int64_t block_timestamp;         /**< The block timestamp. */
+    int64_t block_gas_limit;         /**< The block gas limit. */
+    evmc_uint256be block_difficulty; /**< The block difficulty. */
+    evmc_uint256be chain_id;         /**< The blockchain's ChainID. */
+    evmc_uint256be block_base_fee;   /**< The block base fee per gas (EIP-1559, EIP-3198). */
 };
 
 /**
@@ -545,7 +498,7 @@ enum evmc_storage_status
  * This callback function is used by a VM to update the given account storage entry.
  * The VM MUST make sure that the account exists. This requirement is only a formality because
  * VM implementations only modify storage of the account of the current execution context
- * (i.e. referenced by evmc_message::recipient).
+ * (i.e. referenced by evmc_message::destination).
  *
  * @param context  The pointer to the Host execution context.
  * @param address  The address of the account.
@@ -871,40 +824,26 @@ enum evmc_revision
     /**
      * The Berlin revision.
      *
-     * https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/berlin.md
+     * https://github.com/ethereum/eth1.0-specs/blob/master/network-upgrades/mainnet-upgrades/berlin.md
      */
     EVMC_BERLIN = 8,
 
     /**
      * The London revision.
      *
-     * https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md
+     * https://github.com/ethereum/eth1.0-specs/blob/master/network-upgrades/mainnet-upgrades/london.md
      */
     EVMC_LONDON = 9,
 
     /**
-     * The Paris revision (aka The Merge).
-     *
-     * https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/paris.md
-     */
-    EVMC_PARIS = 10,
-
-    /**
      * The Shanghai revision.
      *
-     * https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/shanghai.md
+     * https://github.com/ethereum/eth1.0-specs/blob/master/network-upgrades/mainnet-upgrades/shanghai.md
      */
-    EVMC_SHANGHAI = 11,
-
-    /**
-     * The Cancun revision.
-     *
-     * The future next revision after Shanghai.
-     */
-    EVMC_CANCUN = 12,
+    EVMC_SHANGHAI = 10,
 
     /** The maximum EVM revision supported. */
-    EVMC_MAX_REVISION = EVMC_CANCUN,
+    EVMC_MAX_REVISION = EVMC_SHANGHAI,
 
     /**
      * The latest known EVM revision with finalized specification.
@@ -958,7 +897,7 @@ enum evmc_capabilities
 
     /**
      * The VM is capable of executing the precompiled contracts
-     * defined for the range of code addresses.
+     * defined for the range of destination addresses.
      *
      * The EIP-1352 (https://eips.ethereum.org/EIPS/eip-1352) specifies
      * the range 0x000...0000 - 0x000...ffff of addresses

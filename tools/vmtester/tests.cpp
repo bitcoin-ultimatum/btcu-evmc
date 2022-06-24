@@ -1,5 +1,5 @@
 // EVMC: Ethereum Client-VM Connector API
-// Copyright 2018 The EVMC Authors.
+// Copyright 2018-2019 The EVMC Authors.
 // Licensed under the Apache License, Version 2.0.
 
 #include "vmtester.hpp"
@@ -87,17 +87,9 @@ TEST_F(evmc_vm_test, execute_call)
 TEST_F(evmc_vm_test, execute_create)
 {
     evmc::MockedHost mockedHost;
-    evmc_message msg{EVMC_CREATE,
-                     0,
-                     0,
-                     65536,
-                     evmc_address{},
-                     evmc_address{},
-                     nullptr,
-                     0,
-                     evmc_uint256be{},
-                     evmc_bytes32{},
-                     evmc_address{}};
+    evmc_message msg{
+        EVMC_CREATE,   0, 0, 65536, evmc_address{}, evmc_address{}, nullptr, 0, evmc_uint256be{},
+        evmc_bytes32{}};
     std::array<uint8_t, 2> code = {{0xfe, 0x00}};
 
     evmc_result result =
@@ -174,21 +166,13 @@ TEST_F(evmc_vm_test, precompile_test)
     // Iterate every address (as per EIP-1352)
     for (size_t i = 0; i < 0xffff; i++)
     {
-        auto addr = evmc_address{};
-        addr.bytes[18] = static_cast<uint8_t>(i >> 8);
-        addr.bytes[19] = static_cast<uint8_t>(i & 0xff);
+        auto destination = evmc_address{};
+        destination.bytes[18] = static_cast<uint8_t>(i >> 8);
+        destination.bytes[19] = static_cast<uint8_t>(i & 0xff);
 
-        evmc_message msg{EVMC_CALL,
-                         0,
-                         0,
-                         65536,
-                         evmc_address{},
-                         evmc_address{},
-                         nullptr,
-                         0,
-                         evmc_uint256be{},
-                         evmc_bytes32{},
-                         addr};
+        evmc_message msg{
+            EVMC_CALL,     0, 0, 65536, destination, evmc_address{}, nullptr, 0, evmc_uint256be{},
+            evmc_bytes32{}};
 
         evmc_result result = vm->execute(vm, nullptr, nullptr, EVMC_MAX_REVISION, &msg, nullptr, 0);
 

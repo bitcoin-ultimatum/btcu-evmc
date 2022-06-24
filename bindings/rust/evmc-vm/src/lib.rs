@@ -1,13 +1,12 @@
-// EVMC: Ethereum Client-VM Connector API.
-// Copyright 2019 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
+/* EVMC: Ethereum Client-VM Connector API.
+ * Copyright 2019 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0.
+ */
 
 //! Rust bindings for EVMC (Ethereum Client-VM Connector API).
 //!
 //! Have a look at evmc-declare to declare an EVMC compatible VM.
 //! This crate documents how to use certain data types.
-
-#![allow(clippy::not_unsafe_ptr_arg_deref, clippy::too_many_arguments)]
 
 mod container;
 mod types;
@@ -20,11 +19,6 @@ pub use types::*;
 pub trait EvmcVm {
     /// This is called once at initialisation time.
     fn init() -> Self;
-
-    /// This is called for each supplied option.
-    fn set_option(&mut self, _: &str, _: &str) -> Result<(), SetOptionError> {
-        Ok(())
-    }
     /// This is called for every incoming message.
     fn execute<'a>(
         &self,
@@ -33,13 +27,6 @@ pub trait EvmcVm {
         message: &'a ExecutionMessage,
         context: Option<&'a mut ExecutionContext<'a>>,
     ) -> ExecutionResult;
-}
-
-/// Error codes for set_option.
-#[derive(Debug)]
-pub enum SetOptionError {
-    InvalidKey,
-    InvalidValue,
 }
 
 /// EVMC result structure.
@@ -58,12 +45,11 @@ pub struct ExecutionMessage {
     flags: u32,
     depth: i32,
     gas: i64,
-    recipient: Address,
+    destination: Address,
     sender: Address,
     input: Option<Vec<u8>>,
     value: Uint256,
     create2_salt: Bytes32,
-    code_address: Address,
 }
 
 /// EVMC transaction context structure.
@@ -83,7 +69,11 @@ impl ExecutionResult {
         ExecutionResult {
             status_code: _status_code,
             gas_left: _gas_left,
-            output: _output.map(|s| s.to_vec()),
+            output: if let Some(output) = _output {
+                Some(output.to_vec())
+            } else {
+                None
+            },
             create_address: None,
         }
     }
@@ -131,24 +121,26 @@ impl ExecutionMessage {
         flags: u32,
         depth: i32,
         gas: i64,
-        recipient: Address,
+        destination: Address,
         sender: Address,
         input: Option<&[u8]>,
         value: Uint256,
         create2_salt: Bytes32,
-        code_address: Address,
     ) -> Self {
         ExecutionMessage {
             kind,
             flags,
             depth,
             gas,
-            recipient,
+            destination,
             sender,
-            input: input.map(|s| s.to_vec()),
+            input: if let Some(input) = input {
+                Some(input.to_vec())
+            } else {
+                None
+            },
             value,
             create2_salt,
-            code_address,
         }
     }
 
@@ -172,9 +164,9 @@ impl ExecutionMessage {
         self.gas
     }
 
-    /// Read the recipient address of the message.
-    pub fn recipient(&self) -> &Address {
-        &self.recipient
+    /// Read the destination address of the message.
+    pub fn destination(&self) -> &Address {
+        &self.destination
     }
 
     /// Read the sender address of the message.
@@ -196,11 +188,6 @@ impl ExecutionMessage {
     pub fn create2_salt(&self) -> &Bytes32 {
         &self.create2_salt
     }
-
-    /// Read the code address of the message.
-    pub fn code_address(&self) -> &Address {
-        &self.code_address
-    }
 }
 
 impl<'a> ExecutionContext<'a> {
@@ -211,7 +198,7 @@ impl<'a> ExecutionContext<'a> {
         };
 
         ExecutionContext {
-            host,
+            host: host,
             context: _context,
             tx_context: _tx_context,
         }
@@ -333,13 +320,12 @@ impl<'a> ExecutionContext<'a> {
             flags: message.flags(),
             depth: message.depth(),
             gas: message.gas(),
-            recipient: *message.recipient(),
+            destination: *message.destination(),
             sender: *message.sender(),
-            input_data,
-            input_size,
+            input_data: input_data,
+            input_size: input_size,
             value: *message.value(),
             create2_salt: *message.create2_salt(),
-            code_address: *message.code_address(),
         };
         unsafe {
             assert!((*self.host).call.is_some());
@@ -394,7 +380,7 @@ impl<'a> ExecutionContext<'a> {
 
 impl From<ffi::evmc_result> for ExecutionResult {
     fn from(result: ffi::evmc_result) -> Self {
-        let ret = Self {
+        let ret = ExecutionResult {
             status_code: result.status_code,
             gas_left: result.gas_left,
             output: if result.output_data.is_null() {
@@ -446,9 +432,9 @@ unsafe fn deallocate_output_data(ptr: *const u8, size: usize) {
 }
 
 /// Returns a pointer to a heap-allocated evmc_result.
-impl From<ExecutionResult> for *const ffi::evmc_result {
-    fn from(value: ExecutionResult) -> Self {
-        let mut result: ffi::evmc_result = value.into();
+impl Into<*const ffi::evmc_result> for ExecutionResult {
+    fn into(self) -> *const ffi::evmc_result {
+        let mut result: ffi::evmc_result = self.into();
         result.release = Some(release_heap_result);
         Box::into_raw(Box::new(result))
     }
@@ -463,17 +449,17 @@ extern "C" fn release_heap_result(result: *const ffi::evmc_result) {
 }
 
 /// Returns a pointer to a stack-allocated evmc_result.
-impl From<ExecutionResult> for ffi::evmc_result {
-    fn from(value: ExecutionResult) -> Self {
-        let (buffer, len) = allocate_output_data(value.output.as_ref());
-        Self {
-            status_code: value.status_code,
-            gas_left: value.gas_left,
+impl Into<ffi::evmc_result> for ExecutionResult {
+    fn into(self) -> ffi::evmc_result {
+        let (buffer, len) = allocate_output_data(self.output.as_ref());
+        ffi::evmc_result {
+            status_code: self.status_code,
+            gas_left: self.gas_left,
             output_data: buffer,
             output_size: len,
             release: Some(release_stack_result),
-            create_address: if value.create_address.is_some() {
-                value.create_address.unwrap()
+            create_address: if self.create_address.is_some() {
+                self.create_address.unwrap()
             } else {
                 Address { bytes: [0u8; 20] }
             },
@@ -497,7 +483,7 @@ impl From<&ffi::evmc_message> for ExecutionMessage {
             flags: message.flags,
             depth: message.depth,
             gas: message.gas,
-            recipient: message.recipient,
+            destination: message.destination,
             sender: message.sender,
             input: if message.input_data.is_null() {
                 assert_eq!(message.input_size, 0);
@@ -509,7 +495,6 @@ impl From<&ffi::evmc_message> for ExecutionMessage {
             },
             value: message.value,
             create2_salt: message.create2_salt,
-            code_address: message.code_address,
         }
     }
 }
@@ -518,10 +503,10 @@ fn from_buf_raw<T>(ptr: *const T, size: usize) -> Vec<T> {
     // Pre-allocate a vector.
     let mut buf = Vec::with_capacity(size);
     unsafe {
-        // Copy from the C buffer to the vec's buffer.
-        std::ptr::copy(ptr, buf.as_mut_ptr(), size);
         // Set the len of the vec manually.
         buf.set_len(size);
+        // Copy from the C buffer to the vec's buffer.
+        std::ptr::copy(ptr, buf.as_mut_ptr(), size);
     }
     buf
 }
@@ -664,58 +649,53 @@ mod tests {
     #[test]
     fn message_new_with_input() {
         let input = vec![0xc0, 0xff, 0xee];
-        let recipient = Address { bytes: [32u8; 20] };
+        let destination = Address { bytes: [32u8; 20] };
         let sender = Address { bytes: [128u8; 20] };
         let value = Uint256 { bytes: [0u8; 32] };
         let create2_salt = Bytes32 { bytes: [255u8; 32] };
-        let code_address = Address { bytes: [64u8; 20] };
 
         let ret = ExecutionMessage::new(
             MessageKind::EVMC_CALL,
             44,
             66,
             4466,
-            recipient,
+            destination,
             sender,
             Some(&input),
             value,
             create2_salt,
-            code_address,
         );
 
         assert_eq!(ret.kind(), MessageKind::EVMC_CALL);
         assert_eq!(ret.flags(), 44);
         assert_eq!(ret.depth(), 66);
         assert_eq!(ret.gas(), 4466);
-        assert_eq!(*ret.recipient(), recipient);
+        assert_eq!(*ret.destination(), destination);
         assert_eq!(*ret.sender(), sender);
         assert!(ret.input().is_some());
         assert_eq!(*ret.input().unwrap(), input);
         assert_eq!(*ret.value(), value);
         assert_eq!(*ret.create2_salt(), create2_salt);
-        assert_eq!(*ret.code_address(), code_address);
     }
 
     #[test]
     fn message_from_ffi() {
-        let recipient = Address { bytes: [32u8; 20] };
+        let destination = Address { bytes: [32u8; 20] };
         let sender = Address { bytes: [128u8; 20] };
         let value = Uint256 { bytes: [0u8; 32] };
         let create2_salt = Bytes32 { bytes: [255u8; 32] };
-        let code_address = Address { bytes: [64u8; 20] };
 
         let msg = ffi::evmc_message {
             kind: MessageKind::EVMC_CALL,
             flags: 44,
             depth: 66,
             gas: 4466,
-            recipient,
-            sender,
+            destination: destination,
+            sender: sender,
             input_data: std::ptr::null(),
             input_size: 0,
-            value,
-            create2_salt,
-            code_address,
+            value: value,
+            create2_salt: create2_salt,
         };
 
         let ret: ExecutionMessage = (&msg).into();
@@ -724,35 +704,32 @@ mod tests {
         assert_eq!(ret.flags(), msg.flags);
         assert_eq!(ret.depth(), msg.depth);
         assert_eq!(ret.gas(), msg.gas);
-        assert_eq!(*ret.recipient(), msg.recipient);
+        assert_eq!(*ret.destination(), msg.destination);
         assert_eq!(*ret.sender(), msg.sender);
         assert!(ret.input().is_none());
         assert_eq!(*ret.value(), msg.value);
         assert_eq!(*ret.create2_salt(), msg.create2_salt);
-        assert_eq!(*ret.code_address(), msg.code_address);
     }
 
     #[test]
     fn message_from_ffi_with_input() {
         let input = vec![0xc0, 0xff, 0xee];
-        let recipient = Address { bytes: [32u8; 20] };
+        let destination = Address { bytes: [32u8; 20] };
         let sender = Address { bytes: [128u8; 20] };
         let value = Uint256 { bytes: [0u8; 32] };
         let create2_salt = Bytes32 { bytes: [255u8; 32] };
-        let code_address = Address { bytes: [64u8; 20] };
 
         let msg = ffi::evmc_message {
             kind: MessageKind::EVMC_CALL,
             flags: 44,
             depth: 66,
             gas: 4466,
-            recipient,
-            sender,
+            destination: destination,
+            sender: sender,
             input_data: input.as_ptr(),
             input_size: input.len(),
-            value,
-            create2_salt,
-            code_address,
+            value: value,
+            create2_salt: create2_salt,
         };
 
         let ret: ExecutionMessage = (&msg).into();
@@ -761,13 +738,12 @@ mod tests {
         assert_eq!(ret.flags(), msg.flags);
         assert_eq!(ret.depth(), msg.depth);
         assert_eq!(ret.gas(), msg.gas);
-        assert_eq!(*ret.recipient(), msg.recipient);
+        assert_eq!(*ret.destination(), msg.destination);
         assert_eq!(*ret.sender(), msg.sender);
         assert!(ret.input().is_some());
         assert_eq!(*ret.input().unwrap(), input);
         assert_eq!(*ret.value(), msg.value);
         assert_eq!(*ret.create2_salt(), msg.create2_salt);
-        assert_eq!(*ret.code_address(), msg.code_address);
     }
 
     unsafe extern "C" fn get_dummy_tx_context(
@@ -780,7 +756,7 @@ mod tests {
             block_number: 42,
             block_timestamp: 235117,
             block_gas_limit: 105023,
-            block_prev_randao: Uint256 { bytes: [0xaa; 32] },
+            block_difficulty: Uint256 { bytes: [0xaa; 32] },
             chain_id: Uint256::default(),
             block_base_fee: Uint256::default(),
         }
@@ -790,7 +766,7 @@ mod tests {
         _context: *mut ffi::evmc_host_context,
         _addr: *const Address,
     ) -> usize {
-        105023_usize
+        105023 as usize
     }
 
     unsafe extern "C" fn execute_call(
@@ -799,10 +775,12 @@ mod tests {
     ) -> ffi::evmc_result {
         // Some dumb validation for testing.
         let msg = *_msg;
-        let success = if msg.input_size != 0 && msg.input_data.is_null() {
+        let success = if msg.input_size != 0 && msg.input_data == std::ptr::null() {
+            false
+        } else if msg.input_size == 0 && msg.input_data != std::ptr::null() {
             false
         } else {
-            msg.input_size != 0 || msg.input_data.is_null()
+            true
         };
 
         ffi::evmc_result {
@@ -862,7 +840,7 @@ mod tests {
         let host = get_dummy_host_interface();
         let host_context = std::ptr::null_mut();
 
-        let exe_context = ExecutionContext::new(&host, host_context);
+        let mut exe_context = ExecutionContext::new(&host, host_context);
 
         let a: usize = 105023;
         let b = exe_context.get_code_size(&test_addr);
@@ -888,7 +866,6 @@ mod tests {
             None,
             Uint256::default(),
             Bytes32::default(),
-            test_addr,
         );
 
         let b = exe_context.call(&message);
@@ -920,7 +897,6 @@ mod tests {
             Some(&data),
             Uint256::default(),
             Bytes32::default(),
-            test_addr,
         );
 
         let b = exe_context.call(&message);

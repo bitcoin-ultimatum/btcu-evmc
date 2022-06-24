@@ -1,16 +1,15 @@
-// EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
+/* EVMC: Ethereum Client-VM Connector API.
+ * Copyright 2018-2020 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0.
+ */
 #pragma once
 
 #include <evmc/evmc.h>
 #include <evmc/helpers.h>
-#include <evmc/hex.hpp>
 
 #include <functional>
 #include <initializer_list>
 #include <ostream>
-#include <string_view>
 #include <utility>
 
 static_assert(EVMC_LATEST_STABLE_REVISION <= EVMC_MAX_REVISION,
@@ -20,9 +19,6 @@ static_assert(EVMC_LATEST_STABLE_REVISION <= EVMC_MAX_REVISION,
 /// @ingroup cpp
 namespace evmc
 {
-/// String view of uint8_t chars.
-using bytes_view = std::basic_string_view<uint8_t>;
-
 /// The big-endian 160-bit hash suitable for keeping an Ethereum address.
 ///
 /// This type wraps C ::evmc_address to make sure objects of this type are always initialized.
@@ -62,9 +58,6 @@ struct address : evmc_address
 
     /// Explicit operator converting to bool.
     inline constexpr explicit operator bool() const noexcept;
-
-    /// Implicit operator converting to bytes_view.
-    inline constexpr operator bytes_view() const noexcept { return {bytes, sizeof(bytes)}; }
 };
 
 /// The fixed size array of 32 bytes for storing 256-bit EVM values.
@@ -117,10 +110,7 @@ struct bytes32 : evmc_bytes32
     {}
 
     /// Explicit operator converting to bool.
-    inline constexpr explicit operator bool() const noexcept;
-
-    /// Implicit operator converting to bytes_view.
-    inline constexpr operator bytes_view() const noexcept { return {bytes, sizeof(bytes)}; }
+    constexpr inline explicit operator bool() const noexcept;
 };
 
 /// The alias for evmc::bytes32 to represent a big-endian 256-bit integer.
@@ -281,27 +271,71 @@ inline constexpr bytes32::operator bool() const noexcept
 
 namespace literals
 {
-/// Converts a raw literal into value of type T.
-///
-/// This function is expected to be used on literals in constexpr context only.
-/// In case the input is invalid the std::terminate() is called.
-/// TODO(c++20): Use consteval.
-template <typename T>
-constexpr T parse(std::string_view s) noexcept
+namespace internal
 {
-    return from_hex<T>(s).value();
+constexpr int from_hex(char c) noexcept
+{
+    return (c >= 'a' && c <= 'f') ? c - ('a' - 10) :
+           (c >= 'A' && c <= 'F') ? c - ('A' - 10) :
+                                    c - '0';
 }
 
-/// Literal for evmc::address.
-constexpr address operator""_address(const char* s) noexcept
+constexpr uint8_t byte(const char* s, size_t i) noexcept
 {
-    return parse<address>(s);
+    return static_cast<uint8_t>((from_hex(s[2 * i]) << 4) | from_hex(s[2 * i + 1]));
+}
+
+template <typename T>
+T from_hex(const char*) noexcept;
+
+template <>
+constexpr bytes32 from_hex<bytes32>(const char* s) noexcept
+{
+    return {
+        {{byte(s, 0),  byte(s, 1),  byte(s, 2),  byte(s, 3),  byte(s, 4),  byte(s, 5),  byte(s, 6),
+          byte(s, 7),  byte(s, 8),  byte(s, 9),  byte(s, 10), byte(s, 11), byte(s, 12), byte(s, 13),
+          byte(s, 14), byte(s, 15), byte(s, 16), byte(s, 17), byte(s, 18), byte(s, 19), byte(s, 20),
+          byte(s, 21), byte(s, 22), byte(s, 23), byte(s, 24), byte(s, 25), byte(s, 26), byte(s, 27),
+          byte(s, 28), byte(s, 29), byte(s, 30), byte(s, 31)}}};
+}
+
+template <>
+constexpr address from_hex<address>(const char* s) noexcept
+{
+    return {
+        {{byte(s, 0),  byte(s, 1),  byte(s, 2),  byte(s, 3),  byte(s, 4),  byte(s, 5),  byte(s, 6),
+          byte(s, 7),  byte(s, 8),  byte(s, 9),  byte(s, 10), byte(s, 11), byte(s, 12), byte(s, 13),
+          byte(s, 14), byte(s, 15), byte(s, 16), byte(s, 17), byte(s, 18), byte(s, 19)}}};
+}
+
+template <typename T, char... c>
+constexpr T from_literal() noexcept
+{
+    constexpr auto size = sizeof...(c);
+    constexpr char literal[] = {c...};
+    constexpr bool is_simple_zero = size == 1 && literal[0] == '0';
+
+    static_assert(is_simple_zero || (literal[0] == '0' && literal[1] == 'x'),
+                  "literal must be in hexadecimal notation");
+    static_assert(is_simple_zero || size == 2 * sizeof(T) + 2,
+                  "literal must match the result type size");
+
+    return is_simple_zero ? T{} : from_hex<T>(&literal[2]);
+}
+}  // namespace internal
+
+/// Literal for evmc::address.
+template <char... c>
+constexpr address operator""_address() noexcept
+{
+    return internal::from_literal<address, c...>();
 }
 
 /// Literal for evmc::bytes32.
-constexpr bytes32 operator""_bytes32(const char* s) noexcept
+template <char... c>
+constexpr bytes32 operator""_bytes32() noexcept
 {
-    return parse<bytes32>(s);
+    return internal::from_literal<bytes32, c...>();
 }
 }  // namespace literals
 
@@ -466,6 +500,7 @@ class HostContext : public HostInterface
 {
     const evmc_host_interface* host = nullptr;
     evmc_host_context* context = nullptr;
+    mutable evmc_tx_context tx_context = {};
 
 public:
     /// Default constructor for null Host context.
@@ -529,7 +564,17 @@ public:
     }
 
     /// @copydoc HostInterface::get_tx_context()
-    evmc_tx_context get_tx_context() const noexcept final { return host->get_tx_context(context); }
+    ///
+    /// The implementation caches the received transaction context
+    /// by assuming that the block timestamp should never be zero.
+    ///
+    /// @return The cached transaction context.
+    evmc_tx_context get_tx_context() const noexcept final
+    {
+        if (tx_context.block_timestamp == 0)
+            tx_context = host->get_tx_context(context);
+        return tx_context;
+    }
 
     bytes32 get_block_hash(int64_t number) const noexcept final
     {
@@ -811,7 +856,7 @@ inline evmc_access_status access_storage(evmc_host_context* h,
 
 inline const evmc_host_interface& Host::get_interface() noexcept
 {
-    static constexpr evmc_host_interface interface = {
+    static constexpr evmc_host_interface interface{
         ::evmc::internal::account_exists, ::evmc::internal::get_storage,
         ::evmc::internal::set_storage,    ::evmc::internal::get_balance,
         ::evmc::internal::get_code_size,  ::evmc::internal::get_code_hash,

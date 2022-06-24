@@ -1,5 +1,5 @@
 # EVMC: Ethereum Client-VM Connector API.
-# Copyright 2018 The EVMC Authors.
+# Copyright 2018-2019 The EVMC Authors.
 # Licensed under the Apache License, Version 2.0.
 
 include(GoogleTest)
@@ -23,7 +23,6 @@ add_executable(
     loader_mock.h
     loader_test.cpp
     mocked_host_test.cpp
-    filter_iterator_test.cpp
     tooling_test.cpp
     hex_test.cpp
 )
@@ -37,6 +36,7 @@ target_link_libraries(
     evmc::instructions
     evmc::evmc_cpp
     evmc::tooling
+    evmc::hex
     GTest::gtest_main
 )
 target_include_directories(evmc-unittests PRIVATE ${PROJECT_SOURCE_DIR})

@@ -8,11 +8,11 @@
 
 namespace evmc::tooling
 {
-int run(VM& vm,
+int run(evmc::VM& vm,
         evmc_revision rev,
         int64_t gas,
-        bytes_view code,
-        bytes_view input,
+        const std::string& code_hex,
+        const std::string& input_hex,
         bool create,
         bool bench,
         std::ostream& out);

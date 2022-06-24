@@ -1,6 +1,7 @@
-// EVMC: Ethereum Client-VM Connector API.
-// Copyright 2019 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
+/* EVMC: Ethereum Client-VM Connector API.
+ * Copyright 2019 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0.
+ */
 
 #include "example_precompiles_vm.h"
 #include <algorithm>
@@ -46,9 +47,9 @@ static evmc_result not_implemented()
     return result;
 }
 
-static evmc_result execute(evmc_vm* /*vm*/,
-                           const evmc_host_interface* /*host*/,
-                           evmc_host_context* /*context*/,
+static evmc_result execute(evmc_vm*,
+                           const evmc_host_interface*,
+                           evmc_host_context*,
                            enum evmc_revision rev,
                            const evmc_message* msg,
                            const uint8_t* /*code*/,
@@ -56,12 +57,12 @@ static evmc_result execute(evmc_vm* /*vm*/,
 {
     // The EIP-1352 (https://eips.ethereum.org/EIPS/eip-1352) defines
     // the range 0 - 0xffff (2 bytes) of addresses reserved for precompiled contracts.
-    // Check if the code address is within the reserved range.
+    // Check if the destination address is within the reserved range.
 
     constexpr auto prefix_size = sizeof(evmc_address) - 2;
-    const auto& addr = msg->code_address;
+    const auto& dst = msg->destination;
     // Check if the address prefix is all zeros.
-    if (std::any_of(&addr.bytes[0], &addr.bytes[prefix_size], [](uint8_t x) { return x != 0; }))
+    if (std::any_of(&dst.bytes[0], &dst.bytes[prefix_size], [](uint8_t x) { return x != 0; }))
     {
         // If not, reject the execution request.
         auto result = evmc_result{};
@@ -69,8 +70,8 @@ static evmc_result execute(evmc_vm* /*vm*/,
         return result;
     }
 
-    // Extract the precompiled contract id from last 2 bytes of the code address.
-    const auto id = (addr.bytes[prefix_size] << 8) | addr.bytes[prefix_size + 1];
+    // Extract the precompiled contract id from last 2 bytes of the destination address.
+    const auto id = (dst.bytes[prefix_size] << 8) | dst.bytes[prefix_size + 1];
     switch (id)
     {
     case 0x0001:  // ECDSARECOVER

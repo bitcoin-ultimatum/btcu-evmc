@@ -1,5 +1,5 @@
 // EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
+// Copyright 2018-2020 The EVMC Authors.
 // Licensed under the Apache License, Version 2.0.
 
 package evmc
@@ -74,7 +74,7 @@ type TxContext struct {
 	Number     int64
 	Timestamp  int64
 	GasLimit   int64
-	PrevRandao Hash
+	Difficulty Hash
 	ChainID    Hash
 	BaseFee    Hash
 }
@@ -92,8 +92,8 @@ type HostContext interface {
 	GetBlockHash(number int64) Hash
 	EmitLog(addr Address, topics []Hash, data []byte)
 	Call(kind CallKind,
-		recipient Address, sender Address, value Hash, input []byte, gas int64, depth int,
-		static bool, salt Hash, codeAddress Address) (output []byte, gasLeft int64, createAddr Address, err error)
+		destination Address, sender Address, value Hash, input []byte, gas int64, depth int,
+		static bool, salt Hash) (output []byte, gasLeft int64, createAddr Address, err error)
 	AccessAccount(addr Address) AccessStatus
 	AccessStorage(addr Address, key Hash) AccessStatus
 }
@@ -173,7 +173,7 @@ func getTxContext(pCtx unsafe.Pointer) C.struct_evmc_tx_context {
 		C.int64_t(txContext.Number),
 		C.int64_t(txContext.Timestamp),
 		C.int64_t(txContext.GasLimit),
-		evmcBytes32(txContext.PrevRandao),
+		evmcBytes32(txContext.Difficulty),
 		evmcBytes32(txContext.ChainID),
 		evmcBytes32(txContext.BaseFee),
 	}
@@ -207,9 +207,8 @@ func call(pCtx unsafe.Pointer, msg *C.struct_evmc_message) C.struct_evmc_result 
 	ctx := getHostContext(uintptr(pCtx))
 
 	kind := CallKind(msg.kind)
-	output, gasLeft, createAddr, err := ctx.Call(kind, goAddress(msg.recipient), goAddress(msg.sender), goHash(msg.value),
-		goByteSlice(msg.input_data, msg.input_size), int64(msg.gas), int(msg.depth), msg.flags != 0, goHash(msg.create2_salt),
-		goAddress(msg.code_address))
+	output, gasLeft, createAddr, err := ctx.Call(kind, goAddress(msg.destination), goAddress(msg.sender), goHash(msg.value),
+		goByteSlice(msg.input_data, msg.input_size), int64(msg.gas), int(msg.depth), msg.flags != 0, goHash(msg.create2_salt))
 
 	statusCode := C.enum_evmc_status_code(0)
 	if err != nil {

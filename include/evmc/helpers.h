@@ -1,6 +1,7 @@
-// EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
+/* EVMC: Ethereum Client-VM Connector API.
+ * Copyright 2018-2019 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0.
+ */
 
 /**
  * EVMC Helpers
@@ -8,6 +9,8 @@
  * A collection of C helper functions for invoking a VM instance methods.
  * These are convenient for languages where invoking function pointers
  * is "ugly" or impossible (such as Go).
+ *
+ * It also contains helpers (overloaded operators) for using EVMC types effectively in C++.
  *
  * @defgroup helpers EVMC Helpers
  * @{
@@ -17,12 +20,6 @@
 #include <evmc/evmc.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifdef __cplusplus
-extern "C" {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-#endif
 
 /**
  * Returns true if the VM has a compatible ABI version.
@@ -253,6 +250,8 @@ static inline const char* evmc_status_code_to_string(enum evmc_status_code statu
         return "wasm trap";
     case EVMC_INSUFFICIENT_BALANCE:
         return "insufficient balance";
+    case EVMC_CREATE_WITH_VALUE:
+        return "create with value";
     case EVMC_INTERNAL_ERROR:
         return "internal error";
     case EVMC_REJECTED:
@@ -288,19 +287,10 @@ static inline const char* evmc_revision_to_string(enum evmc_revision rev)
         return "Berlin";
     case EVMC_LONDON:
         return "London";
-    case EVMC_PARIS:
-        return "Paris";
     case EVMC_SHANGHAI:
         return "Shanghai";
-    case EVMC_CANCUN:
-        return "Cancun";
     }
     return "<unknown>";
 }
 
 /** @} */
-
-#ifdef __cplusplus
-#pragma GCC diagnostic pop
-}  // extern "C"
-#endif

@@ -1,6 +1,7 @@
-// EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
+/* EVMC: Ethereum Client-VM Connector API.
+ * Copyright 2018-2019 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0.
+ */
 
 // Test compilation of C and C++ public headers.
 
@@ -11,8 +12,6 @@
 #include <evmc/loader.h>
 #include <evmc/mocked_host.hpp>
 #include <evmc/utils.h>
-#include <evmc/hex.hpp>
-#include <evmc/filter_iterator.hpp>
 
 // Include again to check if headers have proper include guards.
 #include <evmc/evmc.h>
@@ -22,5 +21,3 @@
 #include <evmc/loader.h>
 #include <evmc/mocked_host.hpp>
 #include <evmc/utils.h>
-#include <evmc/hex.hpp>
-#include <evmc/filter_iterator.hpp>

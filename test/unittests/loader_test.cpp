@@ -1,5 +1,5 @@
 // EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 The EVMC Authors.
+// Copyright 2018-2019 The EVMC Authors.
 // Licensed under the Apache License, Version 2.0.
 
 #include <evmc/evmc.h>
@@ -54,11 +54,9 @@ protected:
         evmc_test_create_fn = fn;
     }
 
-    static void destroy(evmc_vm* /*vm*/) noexcept { ++destroy_count; }
+    static void destroy(evmc_vm*) noexcept { ++destroy_count; }
 
-    static evmc_set_option_result set_option(evmc_vm* /*vm*/,
-                                             const char* name,
-                                             const char* value) noexcept
+    static evmc_set_option_result set_option(evmc_vm*, const char* name, const char* value) noexcept
     {
         recorded_options.push_back({name, value});  // NOLINT
 
@@ -158,7 +156,7 @@ TEST_F(loader, strcpy_sx)
 TEST_F(loader, load_nonexistent)
 {
     constexpr auto path = "nonexistent";
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     EXPECT_TRUE(evmc_load(path, &ec) == nullptr);
     EXPECT_EQ(ec, EVMC_LOADER_CANNOT_OPEN);
     EXPECT_TRUE(evmc_load(path, nullptr) == nullptr);
@@ -167,7 +165,7 @@ TEST_F(loader, load_nonexistent)
 TEST_F(loader, load_long_path)
 {
     const std::string path(5000, 'a');
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     EXPECT_TRUE(evmc_load(path.c_str(), &ec) == nullptr);
     EXPECT_STREQ(evmc_last_error_msg(),
                  "invalid argument: file name is too long (5000, maximum allowed length is 4096)");
@@ -181,7 +179,7 @@ TEST_F(loader, load_long_path)
 
 TEST_F(loader, load_null_path)
 {
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     EXPECT_TRUE(evmc_load(nullptr, &ec) == nullptr);
     EXPECT_EQ(ec, EVMC_LOADER_INVALID_ARGUMENT);
     EXPECT_STREQ(evmc_last_error_msg(), "invalid argument: file name cannot be null");
@@ -193,7 +191,7 @@ TEST_F(loader, load_null_path)
 
 TEST_F(loader, load_empty_path)
 {
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     EXPECT_TRUE(evmc_load("", &ec) == nullptr);
     EXPECT_STREQ(evmc_last_error_msg(), "invalid argument: file name cannot be empty");
     EXPECT_TRUE(evmc_last_error_msg() == nullptr);
@@ -216,7 +214,7 @@ TEST_F(loader, load_aaa)
     for (auto& path : paths)
     {
         setup(path, "evmc_create_aaa", create_aaa);
-        evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+        evmc_loader_error_code ec;
         const auto fn = evmc_load(path, &ec);
         EXPECT_EQ(ec, EVMC_LOADER_SUCCESS);
         ASSERT_TRUE(fn != nullptr);
@@ -241,7 +239,7 @@ TEST_F(loader, load_file_with_multiple_extensions)
     for (auto& path : paths)
     {
         setup(path, "evmc_create_aaa", create_aaa);
-        evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+        evmc_loader_error_code ec;
         const auto fn = evmc_load(path, &ec);
         EXPECT_EQ(ec, EVMC_LOADER_SUCCESS);
         ASSERT_TRUE(fn != nullptr);
@@ -253,7 +251,7 @@ TEST_F(loader, load_file_with_multiple_extensions)
 TEST_F(loader, load_eee_bbb)
 {
     setup("unittests/eee-bbb.dll", "evmc_create_eee_bbb", create_eee_bbb);
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto fn = evmc_load(evmc_test_library_path, &ec);
     const auto expected_vm_ptr = reinterpret_cast<evmc_vm*>(0xeeebbb);
     ASSERT_TRUE(fn != nullptr);
@@ -280,7 +278,7 @@ TEST_F(loader, load_windows_path)
         bool should_open = is_windows || std::strchr(path, '\\') == nullptr;
         setup(should_open ? path : nullptr, "evmc_create_eee_bbb", create_eee_bbb);
 
-        evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+        evmc_loader_error_code ec;
         evmc_load(path, &ec);
         if (should_open)
         {
@@ -313,7 +311,7 @@ TEST_F(loader, load_symbol_not_found)
     {
         setup(path, "evmc_create_aaa", create_aaa);
 
-        evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+        evmc_loader_error_code ec;
         EXPECT_TRUE(evmc_load(evmc_test_library_path, &ec) == nullptr);
         EXPECT_EQ(ec, EVMC_LOADER_SYMBOL_NOT_FOUND);
         EXPECT_EQ(evmc_last_error_msg(), "EVMC create function not found in " + std::string(path));
@@ -326,7 +324,7 @@ TEST_F(loader, load_default_symbol)
 {
     setup("default.evmc", "evmc_create", create_aaa);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto fn = evmc_load(evmc_test_library_path, &ec);
     EXPECT_EQ(ec, EVMC_LOADER_SUCCESS);
     EXPECT_EQ(fn, &create_aaa);
@@ -339,7 +337,7 @@ TEST_F(loader, load_and_create_failure)
 {
     setup("failure.vm", "evmc_create", create_failure);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_create(evmc_test_library_path, &ec);
     EXPECT_TRUE(vm == nullptr);
     EXPECT_EQ(ec, EVMC_LOADER_VM_CREATION_FAILURE);
@@ -355,7 +353,7 @@ TEST_F(loader, load_and_create_abi_mismatch)
 {
     setup("abi1985.vm", "evmc_create", create_vm_with_wrong_abi);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_create(evmc_test_library_path, &ec);
     EXPECT_TRUE(vm == nullptr);
     EXPECT_EQ(ec, EVMC_LOADER_ABI_VERSION_MISMATCH);
@@ -376,7 +374,7 @@ TEST_F(loader, load_and_configure_no_options)
 {
     setup("path", "evmc_create", create_vm_with_set_option);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_configure("path", &ec);
     EXPECT_TRUE(vm);
     EXPECT_TRUE(recorded_options.empty());
@@ -397,7 +395,7 @@ TEST_F(loader, load_and_configure_single_option)
 
     setup("path", "evmc_create", create_vm_with_set_option);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_configure("path,o=1", &ec);
     EXPECT_TRUE(vm);
     ASSERT_EQ(recorded_options.size(), size_t{1});
@@ -420,7 +418,7 @@ TEST_F(loader, load_and_configure_uknown_option)
 
     setup("path", "evmc_create", create_vm_with_set_option);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_configure("path,z=1", &ec);
     EXPECT_FALSE(vm);
     ASSERT_EQ(recorded_options.size(), size_t{1});
@@ -450,7 +448,7 @@ TEST_F(loader, load_and_configure_multiple_options)
 
     setup("path", "evmc_create", create_vm_with_set_option);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_configure("path,a=_a,b=_b1,c=_c,b=_b2", &ec);
     EXPECT_TRUE(vm);
     ASSERT_EQ(recorded_options.size(), size_t{4});
@@ -485,7 +483,7 @@ TEST_F(loader, load_and_configure_uknown_option_in_sequence)
 
     setup("path", "evmc_create", create_vm_with_set_option);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_configure("path,a=_a,b=_b,c=_b,", &ec);
     EXPECT_FALSE(vm);
     ASSERT_EQ(recorded_options.size(), size_t{3});
@@ -520,7 +518,7 @@ TEST_F(loader, load_and_configure_empty_values)
 
     setup("path", "evmc_create", create_vm_with_set_option);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_configure("path,flag,e=,flag=,e", &ec);
     EXPECT_TRUE(vm);
     ASSERT_EQ(recorded_options.size(), size_t{4});
@@ -543,7 +541,7 @@ TEST_F(loader, load_and_configure_degenerated_names)
 
     setup("path", "evmc_create", create_vm_with_set_option);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_configure("path,,,=,,=xxx", &ec);
     EXPECT_TRUE(vm);
     ASSERT_EQ(recorded_options.size(), size_t{5});
@@ -570,7 +568,7 @@ TEST_F(loader, load_and_configure_comma_at_the_end)
 
     setup("path", "evmc_create", create_vm_with_set_option);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_configure("path,x=x,", &ec);
     EXPECT_TRUE(vm);
     ASSERT_EQ(recorded_options.size(), size_t{1});
@@ -588,7 +586,7 @@ TEST_F(loader, load_and_configure_vm_without_set_option)
 
     setup("path", "evmc_create", create_vm_barebone);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto vm = evmc_load_and_configure("path,a=0,b=1", &ec);
     EXPECT_FALSE(vm);
     EXPECT_TRUE(recorded_options.empty());
@@ -616,7 +614,7 @@ TEST_F(loader, load_and_configure_config_too_long)
 {
     setup("path", "evmc_create", create_vm_barebone);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     auto config = std::string{"path,"};
     config.append(10000, 'x');
     auto vm = evmc_load_and_configure(config.c_str(), &ec);
@@ -649,7 +647,7 @@ TEST_F(loader, load_and_configure_unknown_set_option_error_code)
 
     setup("path", "evmc_create", create_vm_with_set_option);
 
-    evmc_loader_error_code ec = EVMC_LOADER_UNSPECIFIED_ERROR;
+    evmc_loader_error_code ec;
     const auto config_str = "path," + option_name_causing_unknown_error + "=1";
     auto vm = evmc_load_and_configure(config_str.c_str(), &ec);
     EXPECT_FALSE(vm);
